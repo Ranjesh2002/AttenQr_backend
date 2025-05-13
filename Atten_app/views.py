@@ -2,6 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from rest_framework.views import APIView
 from .models import Student, Teacher
 
 @api_view(['POST'])
@@ -32,3 +34,26 @@ def register_user(request):
         return Response({'error': 'Invalid role.'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'message': 'User registered successfully.'}, status=status.HTTP_201_CREATED)
+
+
+# attendance/views.py
+
+
+class LoginAPIView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        # Find the user by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Authenticate using username (since Django uses username internally)
+        user = authenticate(username=user.username, password=password)
+
+        if user is not None:
+            return Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
