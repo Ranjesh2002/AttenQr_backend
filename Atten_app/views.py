@@ -89,7 +89,7 @@ def generate_qr(request):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
 
-
+#api for marking attendance using QR code
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_attendance(request):
