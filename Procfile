@@ -1,1 +1,1 @@
-web: gunicorn AttenQR_project.wsgi
+web: gunicorn AttenQR_project.wsgi$
