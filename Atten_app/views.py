@@ -2,8 +2,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate
 from .models import Student, Teacher, QRCodeSession, Attendance
 from django.utils import timezone
 
@@ -52,15 +53,19 @@ def login_view(request):
     user = authenticate(username=user.username, password=password)
 
     if user is not None:
+        refresh = RefreshToken.for_user(user)  # Generate tokens
         role = "student" if hasattr(user, "student") else "teacher"
-        login(request, user)
-
+        
         return Response({
             "message": "Login successful",
             "user": {
                 "first_name": user.first_name,
                 "email": user.email,
                 "role": role,
+            },
+            "tokens": {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
             }
         }, status=status.HTTP_200_OK)
     else:
