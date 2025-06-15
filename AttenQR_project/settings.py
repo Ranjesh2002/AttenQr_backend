@@ -74,7 +74,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.expo\.dev$",               # For Expo Go mobile app (if using)
+    r"^https://.*\.expo\.dev$",             
 ]
 
 ROOT_URLCONF = 'AttenQR_project.urls'

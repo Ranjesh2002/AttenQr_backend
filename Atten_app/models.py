@@ -32,3 +32,14 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student.user.first_name} - Present at {self.timestamp.strftime('%H:%M')}"
+
+class ClassSession(models.Model):
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
+    subject = models.CharField(max_length=100)
+    start_time = models.TimeField() 
+    end_time = models.TimeField()    
+    date = models.DateField()
+    total_students = models.IntegerField()  
+
+    def __str__(self):
+        return f"{self.teacher.user.first_name} - {self.subject} on {self.date}"
