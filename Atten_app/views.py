@@ -5,8 +5,9 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Student, Teacher, QRCodeSession, Attendance
+from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession
 from django.utils import timezone
+from .serializers import ClassSessionSerializer
 
 @api_view(['POST'])
 def register_user(request):
@@ -53,21 +54,21 @@ def login_view(request):
     user = authenticate(username=user.username, password=password)
 
     if user is not None:
-        refresh = RefreshToken.for_user(user)  # Generate tokens
+        refresh = RefreshToken.for_user(user)
         role = "student" if hasattr(user, "student") else "teacher"
         
         return Response({
             "message": "Login successful",
-            "user": {
-                "first_name": user.first_name,
-                "email": user.email,
-                "role": role,
-            },
-            "tokens": {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-            }
-        }, status=status.HTTP_200_OK)
+        "user": {
+            "first_name": user.first_name,
+            "email": user.email,
+            "role": role,
+        },
+        "tokens": {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }
+    }, status=status.HTTP_200_OK)
     else:
         return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -104,7 +105,7 @@ def mark_attendance(request):
     try:
         session = QRCodeSession.objects.get(code=code, is_active=True)
 
-        if timezone.now() > session.created_at + timezone.timedelta(minutes=10):
+        if timezone.now() > session.created_at + timezone.timedelta(minutes=5):
             return Response({"error": "session expired"}, status=400)
         
         student = Student.objects.get(user=request.user)
@@ -116,9 +117,39 @@ def mark_attendance(request):
 
         return Response({"message": "Attendance marked successfully"}, status=201)
     
-    except QRCodeSession.DoesNotExist:
-        return Response({"error" : "Invalid or expired qr session"}, status=404)
-    except Student.DoesNotExist:
-        return Response({"error": "Student not found"}, status=404)
+    except (QRCodeSession.DoesNotExist, Student.DoesNotExist):
+        return Response({"error" : "Invalid qr session or student not found"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+    
+
+@api_view(['Post'])
+@permission_classes([IsAuthenticated])
+def todays_class(request):
+    try:
+        teacher = Teacher.objects.get(user=request.user)
+        today = timezone.now().date()
+
+        class_session = ClassSession.objects.filter(teacher=teacher, date=today).first()
+
+        if not class_session:
+            return Response({"message": "No class found today"}, status=404)
+        
+        serializer = ClassSessionSerializer(class_session)
+        return Response(serializer.data)
+    
+    except Teacher.DoesNotExist:
+        return Response({"message": "Teacher not found"}, status=404)
+    
+
+@api_view(['Post'])
+@permission_classes([IsAuthenticated])
+def teacher_profile(request):
+    try:
+        teacher = Teacher.objects.get(user = request.user)
+        return Response({
+            "fullname" : f"{request.user.first_name} {request.user.last_name}",
+            "email" : request.user.email,
+        })
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=404)
