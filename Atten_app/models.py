@@ -5,9 +5,11 @@ import uuid
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     student_id = models.CharField(max_length=50, unique=True)
+    department = models.CharField(max_length=50)
+    year = models.CharField(max_length=50)
 
     def __str__(self):
-        return f"{self.user.first_name} (Student)"
+        return f"{self.user.first_name} (Student) {self.department} {self.year}"
 
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -43,3 +45,6 @@ class ClassSession(models.Model):
 
     def __str__(self):
         return f"{self.teacher.user.first_name} - {self.subject} on {self.date}"
+    
+
+    
