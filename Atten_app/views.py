@@ -18,6 +18,8 @@ def register_user(request):
     password = data.get('password')
     role = data.get('role')
     student_id = data.get('studentId')
+    department = data.get('department')
+    year = data.get('year')
 
     if not all([name, email, password, role]):
         return Response({'error': 'Missing required fields.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -28,9 +30,9 @@ def register_user(request):
     user = User.objects.create_user(username=email, email=email, password=password, first_name=name)
 
     if role == 'student':
-        if not student_id:
+        if not all([student_id, department, year]):
             return Response({'error': 'Student ID is required for students.'}, status=status.HTTP_400_BAD_REQUEST)
-        Student.objects.create(user=user, student_id=student_id)
+        Student.objects.create(user=user, student_id=student_id, department=department, year=year)
     elif role == 'teacher':
         Teacher.objects.create(user=user)
     else:
@@ -151,5 +153,49 @@ def teacher_profile(request):
             "fullname" : f"{request.user.first_name} {request.user.last_name}",
             "email" : request.user.email,
         })
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=404)
+    
+
+@api_view(['Post'])
+@permission_classes([IsAuthenticated])
+def student_profile(request):
+    try:
+        student = Student.objects.get(user = request.user)
+        return Response({
+            "fullname" : f"{request.user.first_name} {request.user.last_name}",
+            "email" : request.user.email,
+            "id" : student.student_id,
+            "department" : student.department,
+            "year" : student.year,
+        })
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def teacher_history(request):
+    try:
+        teacher = Teacher.objects.get(user= request.user)
+        sessions = ClassSession.objects.filter(teacher=teacher).order_by('-date')
+        data = []
+
+        for class_session in sessions:
+            qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date = class_session.date)
+            total_present = Attendance.objects.filter(session__in=qr_session).count()
+            total_students = class_session.total_students or 0
+            percentage = (total_present / total_students ) * 100 if total_students > 0 else 0
+
+            data.append({
+                "id": class_session.id,
+                "subject": class_session.subject,
+                "date": class_session.date,
+                "total": total_students,
+                "attendees": total_present,
+                "percentage": int(percentage),
+            })
+        return Response(data)
+        
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=404)
