@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, teacher_history
+from .views import login_view, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, teacher_history, teacher_atten
 
 def home(request):
     return JsonResponse({"message": "Welcome to AttenQR API"})
@@ -16,6 +16,7 @@ urlpatterns = [
     path('teacher-profile/', teacher_profile, name='teacher-profile'),
     path('student-profile/', student_profile, name='student-profile'),
     path('teacher-history/', teacher_history, name='teacher-history'),
+    path('teacher-atten/<int:session_id>/', teacher_atten, name='teacher-atten'),
 
 ]
 
