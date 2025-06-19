@@ -7,7 +7,6 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession
 from django.utils import timezone
-from .serializers import ClassSessionSerializer
 
 @api_view(['POST'])
 def register_user(request):
@@ -80,8 +79,7 @@ def login_view(request):
 @permission_classes([IsAuthenticated])
 def generate_qr(request):
     try:
-        user = request.user
-        teacher = Teacher.objects.get(user=user)
+        teacher = Teacher.objects.get(user=request.user)
 
         qr_session = QRCodeSession.objects.create(teacher=teacher)
 
@@ -93,8 +91,7 @@ def generate_qr(request):
     
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     
 
 @api_view(['POST'])
@@ -121,8 +118,7 @@ def mark_attendance(request):
     
     except (QRCodeSession.DoesNotExist, Student.DoesNotExist):
         return Response({"error" : "Invalid qr session or student not found"}, status=404)
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
+
     
 
 @api_view(['Post'])
@@ -132,13 +128,20 @@ def todays_class(request):
         teacher = Teacher.objects.get(user=request.user)
         today = timezone.now().date()
 
-        class_session = ClassSession.objects.filter(teacher=teacher, date=today).first()
+        session = ClassSession.objects.filter(teacher=teacher, date=today).first()
 
-        if not class_session:
+        if not session:
             return Response({"message": "No class found today"}, status=404)
         
-        serializer = ClassSessionSerializer(class_session)
-        return Response(serializer.data)
+        data = {
+            "id": session.id,
+            "subject": session.subject,
+            "start_time": session.start_time,
+            "end_time": session.end_time,
+            "date": session.date,
+            "total_students": session.total_students,
+        }
+        return Response(data)
     
     except Teacher.DoesNotExist:
         return Response({"message": "Teacher not found"}, status=404)
@@ -149,10 +152,11 @@ def todays_class(request):
 def teacher_profile(request):
     try:
         teacher = Teacher.objects.get(user = request.user)
-        return Response({
-            "fullname" : f"{request.user.first_name} {request.user.last_name}",
+        profile = {
+            "fullname" : request.user.first_name,
             "email" : request.user.email,
-        })
+        }
+        return Response(profile)
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=404)
     
@@ -162,20 +166,21 @@ def teacher_profile(request):
 def student_profile(request):
     try:
         student = Student.objects.get(user = request.user)
-        return Response({
-            "fullname" : f"{request.user.first_name} {request.user.last_name}",
+        profile = {
+            "fullname" : {request.user.first_name},
             "email" : request.user.email,
             "id" : student.student_id,
             "department" : student.department,
             "year" : student.year,
-        })
+        }
+        return Response(profile)
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=404)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def teacher_history(request):
+def attendance_history(request):
     try:
         teacher = Teacher.objects.get(user= request.user)
         sessions = ClassSession.objects.filter(teacher=teacher).order_by('-date')
@@ -183,16 +188,16 @@ def teacher_history(request):
 
         for class_session in sessions:
             qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date = class_session.date)
-            total_present = Attendance.objects.filter(session__in=qr_session).count()
+            present = Attendance.objects.filter(session__in=qr_session).count()
             total_students = class_session.total_students or 0
-            percentage = (total_present / total_students ) * 100 if total_students > 0 else 0
+            percentage = (present / total_students ) * 100 if total_students > 0 else 0
 
             data.append({
                 "id": class_session.id,
                 "subject": class_session.subject,
                 "date": class_session.date,
                 "total": total_students,
-                "attendees": total_present,
+                "attendees": present,
                 "percentage": int(percentage),
             })
         return Response(data)
@@ -202,26 +207,27 @@ def teacher_history(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def teacher_atten(request, session_id):
+def student_atten(request, session_id):
     try:
         teacher = Teacher.objects.get(user=request.user)
-        class_session = ClassSession.objects.get(teacher=teacher, id=session_id)
+        sessions = ClassSession.objects.get(teacher=teacher, id=session_id)
 
-        qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date = class_session.date)
+        qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date = sessions.date)
 
-        attendance_records = Attendance.objects.filter(session__in=qr_session).select_related('student__user')
+        present = Attendance.objects.filter(session__in=qr_session).select_related('student__user')
 
-        students = [
-            {
+        students = []
+        for record in present:
+            students.append({
                 "id": record.student.student_id,
-                "name": record.student.user.get_full_name(),
+                "name": record.student.user.first_name,
                 "email": record.student.user.email,
-                "marked_at": record.timestamp
-            }
-            for record in attendance_records
-        ]
-        return Response({"students_present" : students})
-    except Teacher.DoesNotExist:
-        return Response({"error": "Teacher not found"}, status=404)
+                "time":record.timestamp
+            })
+        return Response({"present" : students})
     except ClassSession.DoesNotExist:
         return Response({"error": "Class session not found"}, status=404)
+    
+
+
+    
