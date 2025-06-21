@@ -205,29 +205,65 @@ def attendance_history(request):
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=404)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def student_atten(request, session_id):
     try:
         teacher = Teacher.objects.get(user=request.user)
-        sessions = ClassSession.objects.get(teacher=teacher, id=session_id)
+        class_session = ClassSession.objects.get(teacher=teacher, id=session_id)
+        all_students = Student.objects.all()  
+        qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date=class_session.date)
+        attendance_records = Attendance.objects.filter(session__in=qr_session).select_related('student__user')
 
-        qr_session = QRCodeSession.objects.filter(teacher=teacher, created_at__date = sessions.date)
+        present_student_ids = [record.student.id for record in attendance_records]
 
-        present = Attendance.objects.filter(session__in=qr_session).select_related('student__user')
-
-        students = []
-        for record in present:
-            students.append({
-                "id": record.student.student_id,
-                "name": record.student.user.first_name,
-                "email": record.student.user.email,
-                "time":record.timestamp
+        student_data = []
+        for student in all_students:
+            student_data.append({
+                "id": student.student_id,
+                "name": student.user.first_name,
+                "email": student.user.email,
+                "time": next(
+                    (record.timestamp for record in attendance_records if record.student == student),
+                    None
+                ),
+                "status": "Present" if student.id in present_student_ids else "Absent"
             })
-        return Response({"present" : students})
+
+        return Response({"students": student_data})
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=404)
     except ClassSession.DoesNotExist:
         return Response({"error": "Class session not found"}, status=404)
+  
     
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_attendance(request):
+    try:
+        student = Student.objects.get(user=request.user)
+        # Get all class sessions (filter as needed, e.g., by department/year)
+        class_sessions = ClassSession.objects.all().order_by('-date')
+        data = []
 
+        for session in class_sessions:
+            # Find QR sessions for this class session's teacher and date
+            qr_sessions = QRCodeSession.objects.filter(
+                teacher=session.teacher,
+                created_at__date=session.date
+            )
+            # Check if student has attendance in any of these QR sessions
+            attendance = Attendance.objects.filter(student=student, session__in=qr_sessions).first()
+            data.append({
+                "id": str(session.id),
+                "subject": session.subject,
+                "date": session.date.strftime("%Y-%m-%d"),
+                "status": "present" if attendance else "absent",
+                "time": attendance.timestamp.strftime("%H:%M") if attendance else None
+            })
+        return Response({"attendance_history": data})
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
 
     
