@@ -47,4 +47,22 @@ class ClassSession(models.Model):
         return f"{self.teacher.user.first_name} - {self.subject} on {self.date}"
     
 
+class StudentAlert(models.Model):
+    Alert_type = (
+        ('info', 'Info'),
+        ('warning', 'Warning'),
+        ('success', 'Success'),
+    )
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    subject = models.CharField(max_length=100)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    type = models.CharField(max_length=20, choices=Alert_type, default='info')
+
+    def __str__(self):
+        return f"Alert for {self.student.user.first_name} - {self.subject}"
+
+
     

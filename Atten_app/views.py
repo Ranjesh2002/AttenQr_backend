@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession
+from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert
 from django.utils import timezone
 
 @api_view(['POST'])
@@ -166,12 +166,16 @@ def teacher_profile(request):
 def student_profile(request):
     try:
         student = Student.objects.get(user = request.user)
+        last_attendance = Attendance.objects.filter(student=student).order_by('-timestamp').first()
+        last_attendance_date = last_attendance.timestamp.date() if last_attendance else None
+
         profile = {
-            "fullname" : {request.user.first_name},
+            "fullname" : request.user.first_name,
             "email" : request.user.email,
             "id" : student.student_id,
             "department" : student.department,
             "year" : student.year,
+            "last_attendance_date": last_attendance_date,
         }
         return Response(profile)
     except Student.DoesNotExist:
@@ -262,3 +266,24 @@ def student_attendance(request):
         return Response({"error": "Class session not found"}, status=404)
 
     
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def Alerts(request):
+    try:
+        student = Student.objects.get(user=request.user)
+        alert = StudentAlert.objects.filter(student=student).order_by('created_at')
+
+        data = []
+
+        for alerts in alert:
+            data.append({
+                "subject":alerts.subject,
+                "message": alerts.message,
+                "date": alerts.created_at,
+                "is_read":alerts.is_read,
+                "title":alerts.title,
+                "type": alerts.type
+            })
+        return Response({"alert":data})
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
