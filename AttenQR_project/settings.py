@@ -29,8 +29,6 @@ ALLOWED_HOSTS = ['*', 'https://atttenqr-backend-cwagfzaphvgxdtac.canadacentral-0
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
-# Application 
-
 
 INSTALLED_APPS = [
     'rest_framework',
