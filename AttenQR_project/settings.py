@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-76=8&1uv9p)tqid6*u890@qka9kd-r5_fen5jf1#&p0v8+=4oo
 
 DEBUG = True
 #allow all
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*', 'https://atttenqr-backend-cwagfzaphvgxdtac.canadacentral-01.azurewebsites.net', '127.0.0.1', 'localhost']
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 
@@ -81,6 +81,11 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.expo\.dev$",             
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://atttenqr-backend-cwagfzaphvgxdtac.canadacentral-01.azurewebsites.net'
+]
+
 
 ROOT_URLCONF = 'AttenQR_project.urls'
 
