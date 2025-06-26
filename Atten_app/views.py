@@ -287,3 +287,22 @@ def Alerts(request):
         return Response({"alert":data})
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=404)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_atten_percentage(request):
+    try:
+        student = Student.objects.get(user=request.user)
+        session = ClassSession.objects.all().count()
+        atten = Attendance.objects.filter(student=student).count()
+
+        percentage = (atten / session) * 100 if session > 0 else 0
+
+        return Response({
+            "sessions": session,
+            "present": atten,
+            "attendance_percentage": round(percentage, 2)
+        })   
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
