@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage
+from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak
 from rest_framework_simplejwt.views import  TokenRefreshView
 
 def home(request):
@@ -10,6 +10,7 @@ def home(request):
 urlpatterns = [
     path('', home),
     path('login/', login_view, name='login'),
+    path('admin-login/', admin_login, name='admin-login'),
     path('register/', register_user, name='register'),
     path('generate-qr/', generate_qr, name='generate_qr'),
     path('mark-attendance/', mark_attendance, name='mark-attendance'),
@@ -21,6 +22,7 @@ urlpatterns = [
     path('student-attendance/', student_attendance, name='student-attendance'),
     path('alerts/', Alerts, name='Alerts'),
     path('student-atten-percentage/', student_atten_percentage, name='student_atten_percentage'),
+    path('streak/', streak, name='streak'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
 
