@@ -74,6 +74,35 @@ def login_view(request):
         return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+@api_view(['POST'])
+def admin_login(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    user = authenticate(username=user.username, password=password)
+
+    if user is not None and user.is_superuser:
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            "message": "Admin login successful",
+            "user": {
+                "first_name": user.first_name,
+                "email": user.email,
+                "role": "admin",
+            },
+            "tokens": {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({"error": "You are not authorized as admin"}, status=status.HTTP_403_FORBIDDEN)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -304,5 +333,28 @@ def student_atten_percentage(request):
             "present": atten,
             "attendance_percentage": round(percentage, 2)
         })   
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
+    
+
+@api_view(['GEt'])
+@permission_classes([IsAuthenticated])
+def streak(request):
+    try:
+        student = Student.objects.get(user=request.user)
+        class_session = ClassSession.objects.order_by('-date')
+
+        streak = 0
+
+        for session in class_session:
+            qr_session = QRCodeSession.objects.filter(teacher=session.teacher, created_at__date=session.date)
+
+            attendance = Attendance.objects.filter(student=student, session__in=qr_session).exists()
+
+            if attendance:
+                streak += 1
+            else:
+                break
+        return Response({"streak":streak}) 
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=404)
