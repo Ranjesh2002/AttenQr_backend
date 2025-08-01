@@ -7,6 +7,9 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert
 from django.utils import timezone
+from rest_framework.permissions import IsAdminUser
+
+
 
 @api_view(['POST'])
 def register_user(request):
@@ -336,8 +339,32 @@ def student_atten_percentage(request):
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=404)
     
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def average_attendance_percentage(request):
+    try:
+        students = Student.objects.all()
+        session_count = ClassSession.objects.count()
 
-@api_view(['GEt'])
+        total_percentage = 0
+        student_count = students.count()
+
+        if session_count == 0 or student_count == 0:
+            return Response({"average_attendance": 0.0})
+
+        for student in students:
+            attended = Attendance.objects.filter(student=student).count()
+            percentage = (attended / session_count) * 100
+            total_percentage += percentage
+
+        avg = round(total_percentage / student_count, 2)
+
+        return Response({"average_attendance_percentage": avg})
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def streak(request):
     try:
@@ -358,3 +385,241 @@ def streak(request):
         return Response({"streak":streak}) 
     except Student.DoesNotExist:
         return Response({"error": "Student not found"}, status=404)
+
+
+def atten_percentage(student):
+    session = ClassSession.objects.all().count()
+    atten = Attendance.objects.filter(student=student).count()
+    return round((atten/session) * 100, 2) if session > 0 else 0
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def low_attendance_list(request):
+    low = []
+    stu = Student.objects.select_related('user').all()
+    for student in stu:
+        percent = atten_percentage(student)
+        if percent < 75:
+            low.append({
+                "id": student.student_id,
+                "name":f"{student.user.first_name} {student.user.last_name}",
+                "email": student.user.email,
+                "semester": student.year,
+                "attendance": percent
+            })
+    return Response(low)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def attendance_list(request):
+    data = []
+    students = Student.objects.select_related('user').all()
+    total_sessions = ClassSession.objects.count() 
+
+    for student in students:
+        attended = Attendance.objects.filter(student=student).count()
+        percent = round((attended / total_sessions) * 100, 2) if total_sessions > 0 else 0
+
+        data.append({
+            "id": student.student_id,
+            "name": f"{student.user.first_name} {student.user.last_name}",
+            "email": student.user.email,
+            "semester": student.year,
+            "attendance": percent,
+            "presentClasses": attended,
+            "totalClasses": total_sessions,
+            "attendanceRate": percent 
+        })
+
+    return Response(data)
+
+        
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def send_alerts(request):
+    students = request.data.get('students', [])
+    count = 0
+
+    for s in students:
+        sid = s.get('id')
+        pct = s.get('attendance')
+        if sid is None or pct is None:
+            continue
+
+        try:
+            student = Student.objects.get(id=sid)
+        except Student.DoesNotExist:
+            continue
+
+        if pct < 60:
+            level = 'warning'
+            msg = "⚠️ Critical alert: your attendance is below 60%. Immediate action required!"
+        elif pct < 70:
+            level = 'info'
+            msg = "Your attendance is below 70%. Please improve it soon."
+        else:
+            level = 'success'
+            msg = "Your attendance is below 75%. You're at risk—please increase your attendance."
+        
+        StudentAlert.objects.create(
+            student=student,
+            title="Attendance Alert!",
+            subject="Attendance Notification",
+            message=msg,
+            type=level
+        )
+        count += 1
+
+    return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def create_class_session(request):
+    try:
+        teacher_id = request.data.get('teacher_id')
+        subject = request.data.get('subject')
+        start_time = request.data.get('start_time')   
+        end_time = request.data.get('end_time')      
+        date = request.data.get('date')              
+        total_students = request.data.get('total_students')
+
+        if not all([teacher_id, subject, start_time, end_time, date, total_students]):
+            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            teacher = Teacher.objects.get(id=teacher_id)
+        except Teacher.DoesNotExist:
+            return Response({"error": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        session = ClassSession.objects.create(
+            teacher=teacher,
+            subject=subject,
+            start_time=start_time,
+            end_time=end_time,
+            date=date,
+            total_students=total_students
+        )
+        return Response({
+            "message": "Class session created successfully",
+            "session_id": session.id
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_all_teachers(request):
+    teachers = Teacher.objects.select_related('user').all()
+    data = [
+        {
+            "id": t.id,
+            "name": f"{t.user.first_name} {t.user.last_name}",
+            "email": t.user.email,
+            "department": t.department,
+            "phone": t.phone_number,
+            "status": t.status,
+            "subject": t.subject
+        } for t in teachers
+    ]
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def list_class_sessions(request):
+    teacher_id = request.GET.get('teacher_id')
+    sessions = ClassSession.objects.select_related('teacher__user')
+
+    if teacher_id:
+        sessions = sessions.filter(teacher_id=teacher_id)
+
+    data = [
+        {
+            "id": session.id,
+            "subject": session.subject,
+            "teacher": f"{session.teacher.user.first_name} {session.teacher.user.last_name}",
+            "date": session.date,
+            "start_time": session.start_time,
+            "end_time": session.end_time,
+            "total_students": session.total_students
+        }
+        for session in sessions.order_by('-date')
+    ]
+    return Response(data)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_class_session(request, session_id):
+    try:
+        session = ClassSession.objects.get(id=session_id)
+        session.delete()
+        return Response({"message": "Class session deleted successfully"})
+    except ClassSession.DoesNotExist:
+        return Response({"error": "Session not found"}, status=404)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def total_teacher(request):
+    teac = []
+    teachrs = Teacher.objects.select_related('user').all()
+    for t in teachrs:
+        teac.append({
+            "name": f"{t.user.first_name} {t.user.last_name}",
+            "email": t.user.email
+        })
+    return Response (teac)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def total_stu(request):
+    stu = []
+    student = Student.objects.select_related('user').all()
+    for s in student:
+        stu.append({
+            "name": f"{s.user.first_name} {s.user.last_name}",
+            "email": s.user.email,
+            "department": s.department
+        })
+    return Response (stu)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def total_departments(request):
+    departments = Student.objects.values_list('department', flat=True).distinct()
+    return Response({
+        "count": departments.count(),
+        "departments": list(departments)
+    })
+
+
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def update_teacher(request, teacher_id):
+    try:
+        teacher = Teacher.objects.get(id=teacher_id)
+
+        teacher.user.first_name = request.data.get("name", teacher.user.first_name)
+        teacher.user.email = request.data.get("email", teacher.user.email)
+        teacher.user.save()
+
+        teacher.phone_number = request.data.get("phone_number", teacher.phone_number)
+        teacher.department = request.data.get("department", teacher.department)
+        teacher.subject = request.data.get("subject", teacher.subject)
+        teacher.status = request.data.get("status", teacher.status)  
+
+
+        teacher.save()
+
+        return Response({"message": "Teacher updated successfully"})
+    
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=404)
