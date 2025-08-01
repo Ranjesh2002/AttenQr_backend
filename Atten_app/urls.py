@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak
+from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list
 from rest_framework_simplejwt.views import  TokenRefreshView
 
 def home(request):
@@ -24,8 +24,20 @@ urlpatterns = [
     path('student-atten-percentage/', student_atten_percentage, name='student_atten_percentage'),
     path('streak/', streak, name='streak'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
+    path('alerts/low-attendance/', low_attendance_list, name='low-attendance'),
+    path('alerts/send-alerts/', send_alerts, name='send-alerts'),
+    path('create-class-session/', create_class_session, name='create-class-session'),
+    path('teachers/', get_all_teachers),
+    path('class-sessions/', list_class_sessions),
+    path('delete-class-session/<int:session_id>/', delete_class_session, name='delete-class-session'),
+    path('total_teacher/', total_teacher, name='total_teacher'),
+    path('total_stu/', total_stu, name='total_stu'),
+    path('total_departments/', total_departments, name='total_departments'),
+    path('update_teacher/<int:teacher_id>/', update_teacher, name='update_teacher'),
+    path('average_percentage/', average_attendance_percentage, name='average_attendance_percentage'),
+    path('attendance_list/', attendance_list, name='attendance_list'),
 
 ]
+
 
     
