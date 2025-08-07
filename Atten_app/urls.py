@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list
+from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list, student_detail, student_atten_admin, admin_attendance_history, today_attendance_history, attendance_by_session
 from rest_framework_simplejwt.views import  TokenRefreshView
 
 def home(request):
@@ -36,6 +36,12 @@ urlpatterns = [
     path('update_teacher/<int:teacher_id>/', update_teacher, name='update_teacher'),
     path('average_percentage/', average_attendance_percentage, name='average_attendance_percentage'),
     path('attendance_list/', attendance_list, name='attendance_list'),
+    path('student_detail/<int:student_id>/', student_detail, name='student_detail'),
+    path('student_atten_admin/<int:student_id>/', student_atten_admin, name='student_atten_admin'),
+    path('admin_attendance_history/', admin_attendance_history, name='admin_attendance_history'),
+    path('today_attendance_history/', today_attendance_history, name='today_attendance_history'),
+    path('attendance_by_session/<int:session_id>/', attendance_by_session, name='attendance_by_session'),
+
 
 ]
 
