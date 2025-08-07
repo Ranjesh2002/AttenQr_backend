@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
+from datetime import datetime, timedelta, date
 
 
 
@@ -240,6 +241,74 @@ def attendance_history(request):
         
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=404)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser]) 
+def admin_attendance_history(request):
+    try:
+        sessions = ClassSession.objects.all().order_by('-date')
+            
+        data = []
+        for class_session in sessions:
+            qr_session = QRCodeSession.objects.filter(
+                teacher=class_session.teacher, 
+                created_at__date=class_session.date
+            )
+            present = Attendance.objects.filter(session__in=qr_session).count()
+            total_students = class_session.total_students or 0
+            percentage = (present / total_students) * 100 if total_students > 0 else 0
+
+            data.append({
+                "id": class_session.id,
+                "subject": class_session.subject,
+                "date": class_session.date,
+                "teacher": class_session.teacher.user.get_full_name(),
+                "time": class_session.start_time,
+                "percentage": int(percentage),
+            })
+        return Response(data)
+        
+    except Teacher.DoesNotExist:
+        return Response({"error": "Teacher not found"}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def today_attendance_history(request):
+    today = timezone.now().date()  
+    try:
+        sessions = ClassSession.objects.filter(date=today).order_by('-start_time')
+        data = []
+        
+        for class_session in sessions:
+            qr_session = QRCodeSession.objects.filter(
+                teacher=class_session.teacher,
+                created_at__date=today
+            )
+            present = Attendance.objects.filter(
+                session__in=qr_session,
+                timestamp__date=today
+            ).count()
+            
+            total_students = class_session.total_students or 0
+            percentage = (present / total_students) * 100 if total_students > 0 else 0
+
+            data.append({
+                "id": class_session.id,
+                "subject": class_session.subject,
+                "start_time": class_session.start_time,
+                "end_time": class_session.end_time,
+                "teacher": class_session.teacher.user.get_full_name(),
+                "time": class_session.start_time,
+                "percentage": int(percentage),
+                "status": "Ongoing" if timezone.now().time() < class_session.end_time else "Completed"
+            })
+            
+        return Response(data)
+        
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(['GET'])
@@ -296,6 +365,33 @@ def student_attendance(request):
         return Response({"attendance_history" : data})
     except ClassSession.DoesNotExist:
         return Response({"error": "Class session not found"}, status=404)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])  # Change to IsAdminUser
+def student_atten_admin(request, student_id):
+    try:
+        student = Student.objects.select_related('user').get(student_id=student_id)
+        class_sess = ClassSession.objects.select_related('teacher__user').all().order_by('date')
+
+        data = []
+        for session in class_sess:
+            qr_sess = QRCodeSession.objects.filter(teacher=session.teacher, created_at__date=session.date)
+            attendance = Attendance.objects.filter(
+                student=student, 
+                session__in=qr_sess
+            ).select_related('session').first()
+
+            data.append({
+                "id": session.id,
+                "date": session.date.strftime("%Y-%m-%d"),  
+                "subject": session.subject,
+                "teacher": session.teacher.user.get_full_name(),
+                "status": "present" if attendance else "absent",
+                "time": attendance.timestamp.strftime("%H:%M") if attendance else None
+            })
+        return Response({"attendance_history": data})
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
 
     
 @api_view(['GET'])
@@ -426,6 +522,7 @@ def attendance_list(request):
             "name": f"{student.user.first_name} {student.user.last_name}",
             "email": student.user.email,
             "semester": student.year,
+            "department": student.department,
             "attendance": percent,
             "presentClasses": attended,
             "totalClasses": total_sessions,
@@ -434,7 +531,78 @@ def attendance_list(request):
 
     return Response(data)
 
-        
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def student_detail(request, student_id):
+    try:
+        student = Student.objects.select_related('user').get(student_id=student_id)
+        total_sessions = ClassSession.objects.count()
+        attended_records = Attendance.objects.select_related('session').filter(student=student)
+
+        attended = attended_records.count()
+        percent = round((attended / total_sessions) * 100, 2) if total_sessions > 0 else 0
+        absent = total_sessions - attended
+
+        late_count = 0
+        for record in attended_records:
+            session_start = record.session.created_at
+            late_threshold = session_start + timedelta(minutes=20)
+            if record.timestamp > late_threshold:
+                late_count += 1
+
+        data = {
+            "id": student.student_id,
+            "name": f"{student.user.first_name} {student.user.last_name}",
+            "email": student.user.email,
+            "semester": student.year,
+            "department": student.department,
+            "attendance": percent,
+            "presentClasses": attended,
+            "totalClasses": total_sessions,
+            "attendanceRate": percent,
+            "absent": absent,
+            "lateAttendances": late_count,
+            "enrollmentDate": student.user.date_joined.strftime("%Y-%m-%d")
+        }
+        return Response(data)
+
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=404)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def attendance_by_session(request, session_id):
+    try:
+        session = QRCodeSession.objects.select_related('teacher__user').get(id=session_id)
+        students = Student.objects.select_related('user').all()
+        data = []
+
+        for student in students:
+            attendance = Attendance.objects.filter(student=student, session=session).first()
+
+            if attendance:
+                checkin_time = attendance.timestamp.strftime("%H:%M")
+                late_threshold = session.created_at + timedelta(minutes=20)
+                status = "late" if attendance.timestamp > late_threshold else "present"
+            else:
+                checkin_time = None
+                status = "absent"
+
+            data.append({
+                "id": student.id, 
+                "name": f"{student.user.first_name} {student.user.last_name}",
+                "studentId": student.student_id,
+                "status": status,
+                "checkinTime": checkin_time
+            })
+
+        return Response({
+            "students": data,
+        })
+
+    except QRCodeSession.DoesNotExist:
+        return Response({"error": "Session not found"}, status=404)
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
