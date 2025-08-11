@@ -40,7 +40,7 @@ urlpatterns = [
     path('student_atten_admin/<int:student_id>/', student_atten_admin, name='student_atten_admin'),
     path('admin_attendance_history/', admin_attendance_history, name='admin_attendance_history'),
     path('today_attendance_history/', today_attendance_history, name='today_attendance_history'),
-    path('attendance_by_session/<int:session_id>/', attendance_by_session, name='attendance_by_session'),
+    path('attendance_by_class_session/<int:class_session_id>/', attendance_by_session, name='attendance_by_class_session'),
 
 
 ]

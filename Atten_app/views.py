@@ -572,37 +572,46 @@ def student_detail(request, student_id):
     
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
-def attendance_by_session(request, session_id):
+def attendance_by_session(request, class_session_id):
     try:
-        session = QRCodeSession.objects.select_related('teacher__user').get(id=session_id)
-        students = Student.objects.select_related('user').all()
+        class_session = ClassSession.objects.get(id=class_session_id)
+        qr_sessions = QRCodeSession.objects.filter(
+            teacher=class_session.teacher,
+            created_at__date=class_session.date
+        )
+
+        
+        students = Student.objects.all()
         data = []
-
+        
         for student in students:
-            attendance = Attendance.objects.filter(student=student, session=session).first()
-
+            attendance = Attendance.objects.filter(
+                student=student,
+                session__in=qr_sessions
+            ).first()
+    
             if attendance:
-                checkin_time = attendance.timestamp.strftime("%H:%M")
-                late_threshold = session.created_at + timedelta(minutes=20)
+                late_threshold = attendance.session.created_at + timedelta(minutes=20)
                 status = "late" if attendance.timestamp > late_threshold else "present"
+                checkin_time = attendance.timestamp.strftime("%H:%M")
             else:
-                checkin_time = None
                 status = "absent"
-
+                checkin_time = None
+        
             data.append({
-                "id": student.id, 
+                "id": student.id,
                 "name": f"{student.user.first_name} {student.user.last_name}",
                 "studentId": student.student_id,
                 "status": status,
                 "checkinTime": checkin_time
             })
 
-        return Response({
-            "students": data,
-        })
-
-    except QRCodeSession.DoesNotExist:
-        return Response({"error": "Session not found"}, status=404)
+            
+        return Response({"students": data})
+        
+    except ClassSession.DoesNotExist:
+        return Response({"error": "Class session not found"}, status=404)
+    
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
