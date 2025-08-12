@@ -8,7 +8,8 @@ from django.contrib.auth import authenticate
 from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
+from django.db.models import Count
 
 
 
@@ -800,3 +801,43 @@ def update_teacher(request, teacher_id):
     
     except Teacher.DoesNotExist:
         return Response({"error": "Teacher not found"}, status=404)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def average_attendance_today(request):
+    try:
+        today = date.today()
+        class_sessions = ClassSession.objects.filter(date=today)
+
+        total_expected = 0
+        total_attended = 0
+
+        for session in class_sessions:
+            qr_sessions = QRCodeSession.objects.filter(
+                teacher=session.teacher,
+                created_at__date=session.date
+            )
+
+            attended_students = Student.objects.filter(
+                attendance__session__in=qr_sessions
+            ).distinct()
+
+            total_expected += session.total_students
+            total_attended += attended_students.count()
+
+            total_absent = total_expected - total_attended
+
+        average = round((total_attended / total_expected) * 100, 2) if total_expected > 0 else 0
+
+        return Response({
+            "date": today.strftime("%Y-%m-%d"),
+            "total_sessions": class_sessions.count(),
+            "total_students_expected": total_expected,
+            "total_students_attended": total_attended,
+            "average_attendance_percentage": average,
+            "total_absent": total_absent
+        })
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
