@@ -841,3 +841,42 @@ def average_attendance_today(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def weekly_attendance_trend(request):
+    try:
+        today = date.today()
+        start_of_week = today - timedelta(days=today.weekday())
+
+        trend_data = []
+
+        for i in range(7):
+            current_day = start_of_week + timedelta(days=i)
+            class_session = ClassSession.objects.filter(date=current_day)
+
+            total_expected = 0
+            total_present = 0
+
+            for session in class_session:
+                qr_session = QRCodeSession.objects.filter(teacher = session.teacher, created_at__date = current_day)
+
+                attended_students = Student.objects.filter(
+                attendance__session__in=qr_session
+                ).distinct()
+
+                total_expected += session.total_students
+                total_present += attended_students.count()
+
+                percentage = round((total_present / total_expected) * 100, 2) if total_expected > 0 else 0
+                trend_data.append({
+                    "day": current_day.strftime("%a"),
+                    "attendance": percentage
+                })
+        return Response(trend_data)
+
+
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
+    
