@@ -9,7 +9,8 @@ from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,St
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta, date
-from django.db.models import Count
+# from django.db.models import Count
+import random
 
 
 
@@ -868,15 +869,57 @@ def weekly_attendance_trend(request):
                 total_expected += session.total_students
                 total_present += attended_students.count()
 
-                percentage = round((total_present / total_expected) * 100, 2) if total_expected > 0 else 0
-                trend_data.append({
-                    "day": current_day.strftime("%a"),
-                    "attendance": percentage
-                })
+            percentage = round((total_present / total_expected) * 100, 2) if total_expected > 0 else 0
+            trend_data.append({
+                "day": current_day.strftime("%a"),
+                "attendance": percentage
+            })
         return Response(trend_data)
-
-
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
     
+
+SUBJECT_COLORS = [
+    "#3B82F6", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#EC4899", "#22D3EE"
+]
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def subject_wise_attendance(request):
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())
+
+    subject = {}
+
+    for i in range(7):
+        current_day = start_of_week + timedelta(days=i)
+        sessions = ClassSession.objects.filter(date=current_day)
+
+        for session in sessions:
+            sub = session.subject
+            qr_sessions = QRCodeSession.objects.filter(teacher=session.teacher, created_at__date = current_day)
+
+            attended_student = Student.objects.filter(attendance__session__in=qr_sessions).distinct()
+
+            expected = session.total_students
+            present = attended_student.count()
+
+            if sub not in subject:
+                subject[sub] = {"present": 0, "expected": 0}
+            subject[sub]["present"] += present
+            subject[sub]["expected"] += expected
+    result = []
+    for i, (sub, stats) in enumerate(subject.items()):
+        expected = stats["expected"]
+        present = stats["present"]
+        percentage = round((present / expected) * 100, 2) if expected > 0 else 0
+
+        result.append({
+            "name": subject,
+            "value": percentage,
+            "color": SUBJECT_COLORS[i % len(SUBJECT_COLORS)]
+        })
+
+    return Response(result)
+
