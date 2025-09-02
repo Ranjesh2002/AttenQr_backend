@@ -9,10 +9,13 @@ from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,St
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta, date
-# from django.db.models import Count
-import random
-
-
+import os
+from jinja2 import Template
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from .serializers import AdminLoginSerializer
+from .services import admin_login_service
 
 @api_view(['POST'])
 def register_user(request):
@@ -80,35 +83,24 @@ def login_view(request):
         return Response({"error": "Invalid email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
+
 @api_view(['POST'])
 def admin_login(request):
-    email = request.data.get("email")
-    password = request.data.get("password")
-
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+    serializer = AdminLoginSerializer(data=request.data)
     
-    user = authenticate(username=user.username, password=password)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    if user is not None and user.is_superuser:
-        refresh = RefreshToken.for_user(user)
+    data, error = admin_login_service(
+        serializer.validated_data["email"],
+        serializer.validated_data["password"]
+    )
 
-        return Response({
-            "message": "Admin login successful",
-            "user": {
-                "first_name": user.first_name,
-                "email": user.email,
-                "role": "admin",
-            },
-            "tokens": {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-            }
-        }, status=status.HTTP_200_OK)
-    else:
-        return Response({"error": "You are not authorized as admin"}, status=status.HTTP_403_FORBIDDEN)
+    if error:
+        return Response({"error": error}, status=status.HTTP_401_UNAUTHORIZED)
+
+    return Response(data, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -923,3 +915,46 @@ def subject_wise_attendance(request):
 
     return Response(result)
 
+
+
+
+template_path = os.path.abspath("Atten_app/templates/index.html")
+with open(template_path, "r") as file:
+    template_str = file.read()
+
+jinja_template = Template(template_str)
+
+smtp_server = "smtp.gmail.com"
+smtp_port = 587
+sender_email = "rs0036870@gmail.com"
+sender_password = "oirb gaqk oxig oaha"
+
+server = smtplib.SMTP(smtp_server, smtp_port)
+server.starttls()
+server.login(sender_email, sender_password)
+
+people_data = [
+    {"name": "Ranjesh", "email": "Ranjesh.Thakur@aitm.edu.np"},
+]
+
+for person in people_data:
+    email_data = {
+    "greeting": f"Hello {person['name']},",
+    "subject": "Data Structures",
+    "attendance_rate": 68,  
+    "sender_name": "AttenQR Team"
+}
+    email_content = jinja_template.render(email_data)
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = person["email"]
+    msg["Subject"] = email_data["subject"]
+
+    msg.attach(MIMEText(email_content, "html"))
+
+    print(f"Sending email to {person['email']}:\n{email_content}\n\n")
+    
+    server.sendmail(sender_email, person["email"], msg.as_string())
+
+server.quit()
