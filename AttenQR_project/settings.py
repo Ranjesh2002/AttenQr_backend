@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -158,3 +160,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
+SMTP_SERVER = config('SMTP_SERVER')
+SMTP_PORT = config('SMTP_PORT', cast=int)
+SENDER_EMAIL = config('SENDER_EMAIL')
+SENDER_PASSWORD = config('SENDER_PASSWORD')

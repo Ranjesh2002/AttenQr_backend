@@ -16,6 +16,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from .serializers import AdminLoginSerializer, ClassSessionSerializer
 from .services import admin_login_service, get_class_sessions
+from django.conf import settings
+
 
 @api_view(['POST'])
 def register_user(request):
@@ -905,10 +907,10 @@ def subject_wise_attendance(request):
 
 #     return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
 
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SENDER_EMAIL = "rs0036870@gmail.com"
-SENDER_PASSWORD = "oirb gaqk oxig oaha"
+# SMTP_SERVER = "smtp.gmail.com"
+# SMTP_PORT = 587
+# SENDER_EMAIL = "rs0036870@gmail.com"
+# SENDER_PASSWORD = "oirb gaqk oxig oaha"
 
 def send_email(to_email, subject, template_name, context):
     template_path = os.path.abspath(f"Atten_app/templates/{template_name}.html")
@@ -919,16 +921,16 @@ def send_email(to_email, subject, template_name, context):
     email_content = jinja_template.render(context)
 
     msg = MIMEMultipart()
-    msg["From"] = SENDER_EMAIL
+    msg["From"] = settings.SENDER_EMAIL
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.attach(MIMEText(email_content, "html"))
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT) as server:
             server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
+            server.login(settings.SENDER_EMAIL, settings.SENDER_PASSWORD)
+            server.sendmail(settings.SENDER_EMAIL, to_email, msg.as_string())
             print(f"✅ Email sent to {to_email}")
     except Exception as e:
         print(f"❌ Failed to send email to {to_email}: {e}")
@@ -988,17 +990,3 @@ def send_alerts(request):
     return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
 
 
-
-
-
-# send_email(
-#     to_email="ranjesh.thakur@aitm.edu.np",
-#     subject="Attendance Alert",
-#     template_name="index",
-#     context={
-#         "name": "Ranjesh",
-#         "subject": "Data Structures",
-#         "attendance_rate": 65,
-#         "sender_name": "AttenQR Team",
-#     },
-# )
