@@ -14,8 +14,8 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer
-from .services import admin_login_service
+from .serializers import AdminLoginSerializer, ClassSessionSerializer
+from .services import admin_login_service, get_class_sessions
 
 @api_view(['POST'])
 def register_user(request):
@@ -607,44 +607,6 @@ def attendance_by_session(request, class_session_id):
         return Response({"error": "Class session not found"}, status=404)
     
 
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
-def send_alerts(request):
-    students = request.data.get('students', [])
-    count = 0
-
-    for s in students:
-        sid = s.get('id')
-        pct = s.get('attendance')
-        if sid is None or pct is None:
-            continue
-
-        try:
-            student = Student.objects.get(id=sid)
-        except Student.DoesNotExist:
-            continue
-
-        if pct < 60:
-            level = 'warning'
-            msg = "⚠️ Critical alert: your attendance is below 60%. Immediate action required!"
-        elif pct < 70:
-            level = 'info'
-            msg = "Your attendance is below 70%. Please improve it soon."
-        else:
-            level = 'success'
-            msg = "Your attendance is below 75%. You're at risk—please increase your attendance."
-        
-        StudentAlert.objects.create(
-            student=student,
-            title="Attendance Alert!",
-            subject="Attendance Notification",
-            message=msg,
-            type=level
-        )
-        count += 1
-
-    return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
-
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
@@ -700,28 +662,15 @@ def get_all_teachers(request):
     return Response(data)
 
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 @permission_classes([IsAdminUser])
 def list_class_sessions(request):
-    teacher_id = request.GET.get('teacher_id')
-    sessions = ClassSession.objects.select_related('teacher__user')
+    teacher_id = request.GET.get("teacher_id")
+    sessions = get_class_sessions(teacher_id)
+    serializer = ClassSessionSerializer(sessions, many=True)
+    return Response(serializer.data)
 
-    if teacher_id:
-        sessions = sessions.filter(teacher_id=teacher_id)
-
-    data = [
-        {
-            "id": session.id,
-            "subject": session.subject,
-            "teacher": f"{session.teacher.user.first_name} {session.teacher.user.last_name}",
-            "date": session.date,
-            "start_time": session.start_time,
-            "end_time": session.end_time,
-            "total_students": session.total_students
-        }
-        for session in sessions.order_by('-date')
-    ]
-    return Response(data)
 
 
 @api_view(['DELETE'])
@@ -915,46 +864,141 @@ def subject_wise_attendance(request):
 
     return Response(result)
 
+# @api_view(['POST'])
+# @permission_classes([IsAdminUser])
+# def send_alerts(request):
+#     students = request.data.get('students', [])
+#     count = 0
 
+#     for s in students:
+#         sid = s.get('id')
+#         pct = s.get('attendance')
+#         print(f"Processing student ID: {sid}, attendance: {pct}")  
 
+#         if sid is None or pct is None:
+#             continue
 
-template_path = os.path.abspath("Atten_app/templates/index.html")
-with open(template_path, "r") as file:
-    template_str = file.read()
+#         try:
+#             student = Student.objects.get(student_id=sid)
+#         except Student.DoesNotExist:
+#             print(f"Student not found: {sid}") 
+#             continue
 
-jinja_template = Template(template_str)
+#         if pct < 60:
+#             level = 'warning'
+#             msg = "⚠️ Critical alert: your attendance is below 60%. Immediate action required!"
+#         elif pct < 70:
+#             level = 'info'
+#             msg = "Your attendance is below 70%. Please improve it soon."
+#         else:
+#             level = 'success'
+#             msg = "Your attendance is below 75%. You're at risk—please increase your attendance."
+        
+#         StudentAlert.objects.create(
+#             student=student,
+#             title="Attendance Alert!",
+#             subject="Attendance Notification",
+#             message=msg,
+#             type=level
+#         )
+#         count += 1
 
-smtp_server = "smtp.gmail.com"
-smtp_port = 587
-sender_email = "rs0036870@gmail.com"
-sender_password = "oirb gaqk oxig oaha"
+#     return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
 
-server = smtplib.SMTP(smtp_server, smtp_port)
-server.starttls()
-server.login(sender_email, sender_password)
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SENDER_EMAIL = "rs0036870@gmail.com"
+SENDER_PASSWORD = "oirb gaqk oxig oaha"
 
-people_data = [
-    {"name": "Ranjesh", "email": "Ranjesh.Thakur@aitm.edu.np"},
-]
+def send_email(to_email, subject, template_name, context):
+    template_path = os.path.abspath(f"Atten_app/templates/{template_name}.html")
+    with open(template_path, "r", encoding="utf-8") as file:
+        template_str = file.read()
 
-for person in people_data:
-    email_data = {
-    "greeting": f"Hello {person['name']},",
-    "subject": "Data Structures",
-    "attendance_rate": 68,  
-    "sender_name": "AttenQR Team"
-}
-    email_content = jinja_template.render(email_data)
+    jinja_template = Template(template_str)
+    email_content = jinja_template.render(context)
 
     msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = person["email"]
-    msg["Subject"] = email_data["subject"]
-
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = to_email
+    msg["Subject"] = subject
     msg.attach(MIMEText(email_content, "html"))
 
-    print(f"Sending email to {person['email']}:\n{email_content}\n\n")
-    
-    server.sendmail(sender_email, person["email"], msg.as_string())
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, to_email, msg.as_string())
+            print(f"✅ Email sent to {to_email}")
+    except Exception as e:
+        print(f"❌ Failed to send email to {to_email}: {e}")
 
-server.quit()
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def send_alerts(request):
+    students = request.data.get('students', [])
+    count = 0
+
+    for s in students:
+        sid = s.get('id')
+        pct = s.get('attendance')
+
+        if sid is None or pct is None:
+            continue
+
+        try:
+            student = Student.objects.get(student_id=sid)
+        except Student.DoesNotExist:
+            continue
+
+        if pct < 60:
+            level = 'warning'
+            msg = "⚠️ Critical alert: your attendance is below 60%. Immediate action required!"
+        elif pct < 70:
+            level = 'info'
+            msg = "Your attendance is below 70%. Please improve it soon."
+        else:
+            level = 'success'
+            msg = "Your attendance is below 75%. You're at risk—please increase your attendance."
+        
+        StudentAlert.objects.create(
+            student=student,
+            title="Attendance Alert!",
+            subject="Attendance Notification",
+            message=msg,
+            type=level
+        )
+        count += 1
+
+        email_context = {
+            "name": student.user.first_name,
+            "subject": student.year,
+            "attendance_rate": round(pct, 2),
+            "sender_name": "AttenQR Team"
+        }
+
+        send_email(
+            to_email=student.user.email,
+            subject="📢 Attendance Alert from AttenQR",
+            template_name="index",
+            context=email_context
+        )
+
+
+    return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
+
+
+
+
+
+# send_email(
+#     to_email="ranjesh.thakur@aitm.edu.np",
+#     subject="Attendance Alert",
+#     template_name="index",
+#     context={
+#         "name": "Ranjesh",
+#         "subject": "Data Structures",
+#         "attendance_rate": 65,
+#         "sender_name": "AttenQR Team",
+#     },
+# )

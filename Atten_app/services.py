@@ -1,6 +1,8 @@
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
+from .models import ClassSession
+
 
 def admin_login_service(email, password):
     try:
@@ -31,3 +33,10 @@ def admin_login_service(email, password):
         }
     }
     return data, None
+
+
+def get_class_sessions(teacher_id=None):
+    sessions = ClassSession.objects.select_related("teacher__user")
+    if teacher_id:
+        sessions = sessions.filter(teacher_id=teacher_id)
+    return sessions.order_by("-date")
