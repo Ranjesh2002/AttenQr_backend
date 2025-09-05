@@ -150,7 +150,7 @@ def mark_attendance(request):
 
     
 
-@api_view(['Post'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def todays_class(request):
     try:
