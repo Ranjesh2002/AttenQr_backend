@@ -866,51 +866,6 @@ def subject_wise_attendance(request):
 
     return Response(result)
 
-# @api_view(['POST'])
-# @permission_classes([IsAdminUser])
-# def send_alerts(request):
-#     students = request.data.get('students', [])
-#     count = 0
-
-#     for s in students:
-#         sid = s.get('id')
-#         pct = s.get('attendance')
-#         print(f"Processing student ID: {sid}, attendance: {pct}")  
-
-#         if sid is None or pct is None:
-#             continue
-
-#         try:
-#             student = Student.objects.get(student_id=sid)
-#         except Student.DoesNotExist:
-#             print(f"Student not found: {sid}") 
-#             continue
-
-#         if pct < 60:
-#             level = 'warning'
-#             msg = "⚠️ Critical alert: your attendance is below 60%. Immediate action required!"
-#         elif pct < 70:
-#             level = 'info'
-#             msg = "Your attendance is below 70%. Please improve it soon."
-#         else:
-#             level = 'success'
-#             msg = "Your attendance is below 75%. You're at risk—please increase your attendance."
-        
-#         StudentAlert.objects.create(
-#             student=student,
-#             title="Attendance Alert!",
-#             subject="Attendance Notification",
-#             message=msg,
-#             type=level
-#         )
-#         count += 1
-
-#     return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
-
-# SMTP_SERVER = "smtp.gmail.com"
-# SMTP_PORT = 587
-# SENDER_EMAIL = "rs0036870@gmail.com"
-# SENDER_PASSWORD = "oirb gaqk oxig oaha"
 
 def send_email(to_email, subject, template_name, context):
     template_path = os.path.abspath(f"Atten_app/templates/{template_name}.html")

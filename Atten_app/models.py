@@ -20,6 +20,18 @@ class Teacher(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} (Teacher)"
+    
+class Parent(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    phone_number = models.CharField(max_length=10)
+    student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name="parent", null=True, blank=True)
+
+    def __str__(self):
+        if self.student:
+            return f"{self.user.first_name} (Parent of {self.student.user.first_name})"
+        return f"{self.user.first_name} (Parent - no student linked)"
+    #username: thakur, password: ranjesh123@#
+
 
 
 class QRCodeSession(models.Model):
