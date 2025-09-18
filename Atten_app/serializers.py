@@ -6,6 +6,10 @@ class AdminLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
+class ParentLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
 
 class ClassSessionSerializer(serializers.ModelSerializer):
     teacher = serializers.SerializerMethodField()

@@ -14,8 +14,8 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer, ClassSessionSerializer
-from .services import admin_login_service, get_class_sessions
+from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer
+from .services import admin_login_service, get_class_sessions, parent_login_services
 from django.conf import settings
 
 
@@ -94,6 +94,24 @@ def admin_login(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     data, error = admin_login_service(
+        serializer.validated_data["email"],
+        serializer.validated_data["password"]
+    )
+
+    if error:
+        return Response({"error": error}, status=status.HTTP_401_UNAUTHORIZED)
+
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def parent_login(request):
+    serializer = ParentLoginSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    data, error = parent_login_services(
         serializer.validated_data["email"],
         serializer.validated_data["password"]
     )

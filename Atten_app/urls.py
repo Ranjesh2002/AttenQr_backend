@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list, student_detail, student_atten_admin, admin_attendance_history, today_attendance_history, attendance_by_session, average_attendance_today, weekly_attendance_trend, subject_wise_attendance
+from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list, student_detail, student_atten_admin, admin_attendance_history, today_attendance_history, attendance_by_session, average_attendance_today, weekly_attendance_trend, subject_wise_attendance, parent_login
 from rest_framework_simplejwt.views import  TokenRefreshView
 
 def home(request):
@@ -11,6 +11,7 @@ urlpatterns = [
     path('', home),
     path('login/', login_view, name='login'),
     path('admin-login/', admin_login, name='admin-login'),
+    path('parent-login/', parent_login, name='parent-login'),
     path('register/', register_user, name='register'),
     path('generate-qr/', generate_qr, name='generate_qr'),
     path('mark-attendance/', mark_attendance, name='mark-attendance'),
@@ -43,6 +44,7 @@ urlpatterns = [
     path('attendance_by_class_session/<int:class_session_id>/', attendance_by_session, name='attendance_by_class_session'),
     path('average_attendance_today/', average_attendance_today, name='average_attendance_today'),
     path('weekly_attendance_trend/', weekly_attendance_trend, name='weekly_attendance_trend'),
+    path('subject_wise_attendance/', subject_wise_attendance, name='subject_wise_attendance'),
     path('subject_wise_attendance/', subject_wise_attendance, name='subject_wise_attendance'),
 
 

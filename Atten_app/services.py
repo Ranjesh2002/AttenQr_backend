@@ -35,6 +35,33 @@ def admin_login_service(email, password):
     return data, None
 
 
+def parent_login_services(email, password):
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return None, "Invalid Credential"
+    
+    user = authenticate(username=user.username, password=password)
+    if user is None:
+        return None, "Invalid credentials"
+    if not hasattr(user, "parent"):
+        return None, "This account is not registered as a Parent"
+
+    refresh = RefreshToken.for_user(user)
+    data = {
+        "message": "Parent login successful",
+        "user": {
+            "first_name": user.first_name,
+            "email": user.email,
+        },
+        "tokens": {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }
+    }
+    return data, None
+
+
 def get_class_sessions(teacher_id=None):
     sessions = ClassSession.objects.select_related("teacher__user")
     if teacher_id:
