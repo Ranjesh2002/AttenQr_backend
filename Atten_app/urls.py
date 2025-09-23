@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import register_user
 from django.http import JsonResponse
-from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list, student_detail, student_atten_admin, admin_attendance_history, today_attendance_history, attendance_by_session, average_attendance_today, weekly_attendance_trend, subject_wise_attendance, parent_login
+from .views import login_view, admin_login, generate_qr, mark_attendance, todays_class, teacher_profile, student_profile, attendance_history, student_atten, student_attendance, Alerts, student_atten_percentage, streak, low_attendance_list, send_alerts, create_class_session, get_all_teachers, list_class_sessions, delete_class_session, total_teacher, total_stu, total_departments, update_teacher, average_attendance_percentage, attendance_list, student_detail, student_atten_admin, admin_attendance_history, today_attendance_history, attendance_by_session, average_attendance_today, weekly_attendance_trend, subject_wise_attendance, parent_login, parent_dashboard_view
 from rest_framework_simplejwt.views import  TokenRefreshView
 
 def home(request):
@@ -46,6 +46,7 @@ urlpatterns = [
     path('weekly_attendance_trend/', weekly_attendance_trend, name='weekly_attendance_trend'),
     path('subject_wise_attendance/', subject_wise_attendance, name='subject_wise_attendance'),
     path('subject_wise_attendance/', subject_wise_attendance, name='subject_wise_attendance'),
+    path('parent_dashboard_view/', parent_dashboard_view, name='parent_dashboard_view'),
 
 
 ]

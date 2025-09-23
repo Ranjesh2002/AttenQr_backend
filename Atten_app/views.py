@@ -381,7 +381,7 @@ def student_attendance(request):
         return Response({"error": "Class session not found"}, status=404)
     
 @api_view(['GET'])
-@permission_classes([IsAdminUser])  # Change to IsAdminUser
+@permission_classes([IsAdminUser])  
 def student_atten_admin(request, student_id):
     try:
         student = Student.objects.select_related('user').get(student_id=student_id)
@@ -963,3 +963,59 @@ def send_alerts(request):
     return Response({"alerts_sent": count}, status=status.HTTP_201_CREATED)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def parent_dashboard_view(request):
+    user = request.user
+
+    if not hasattr(user, "parent"):
+        return Response({"error": "Not a parent"}, status=403)
+
+    parent = user.parent
+    student = parent.student
+
+    # Today's attendance (example logic)
+    today_attendance = None
+    if student:
+        attendance = Attendance.objects.filter(
+            student=student, timestamp__date=date.today()
+        ).first()
+        if attendance:
+            today_attendance = {
+                "status": "present",  # since each record = present
+                "time": attendance.timestamp.strftime("%I:%M %p"),
+                "date": attendance.timestamp.date(),
+            }
+
+    # Weekly stats (example logic)
+    weekly_records = Attendance.objects.filter(
+        student=student,
+        timestamp__date__gte=date.today() - timedelta(days=7)
+    )
+    present_days = weekly_records.count()
+    total_days = 7
+    percentage = int((present_days / total_days) * 100) if total_days > 0 else 0
+
+    weekly_stats = {
+        "present": present_days,
+        "total": total_days,
+        "percentage": percentage,
+    }
+
+    # Recent announcements (example)
+
+    return Response({
+        "parent": {
+            "name": user.first_name,
+            "email": user.email,
+            "phone_number": parent.phone_number,
+        },
+        "student": {
+            "name": student.user.first_name if student else None,
+            "student_id": student.student_id if student else None,
+            "department": student.department if student else None,
+            "year": student.year if student else None,
+        },
+        "todayAttendance": today_attendance,
+        "weeklyStats": weekly_stats,
+    })
