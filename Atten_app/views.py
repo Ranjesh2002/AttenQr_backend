@@ -974,7 +974,6 @@ def parent_dashboard_view(request):
     parent = user.parent
     student = parent.student
 
-    # Today's attendance (example logic)
     today_attendance = None
     if student:
         attendance = Attendance.objects.filter(
@@ -982,18 +981,17 @@ def parent_dashboard_view(request):
         ).first()
         if attendance:
             today_attendance = {
-                "status": "present",  # since each record = present
+                "status": "present",
                 "time": attendance.timestamp.strftime("%I:%M %p"),
                 "date": attendance.timestamp.date(),
             }
 
-    # Weekly stats (example logic)
     weekly_records = Attendance.objects.filter(
         student=student,
         timestamp__date__gte=date.today() - timedelta(days=7)
     )
     present_days = weekly_records.count()
-    total_days = 7
+    total_days = QRCodeSession.objects.filter(date__gte=date.today() - timedelta(days=6))
     percentage = int((present_days / total_days) * 100) if total_days > 0 else 0
 
     weekly_stats = {
@@ -1002,7 +1000,6 @@ def parent_dashboard_view(request):
         "percentage": percentage,
     }
 
-    # Recent announcements (example)
 
     return Response({
         "parent": {
