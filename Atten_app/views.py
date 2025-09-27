@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert
+from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert, Parent
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta, date
@@ -14,7 +14,7 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer
+from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer
 from .services import admin_login_service, get_class_sessions, parent_login_services
 from django.conf import settings
 
@@ -1016,3 +1016,15 @@ def parent_dashboard_view(request):
         "todayAttendance": today_attendance,
         "weeklyStats": weekly_stats,
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def parent_profile(request):
+    try:
+        parent = Parent.objects.get(user=request.user)
+    except Parent.DoesNotExist:
+        return Response({"error": "Parent profile not found"}, status=404)
+    
+    serializer = ParentProfileSerializer(parent)
+    return Response(serializer.data)
