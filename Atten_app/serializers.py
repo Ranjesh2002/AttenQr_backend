@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ClassSession, Student, Parent
+from .models import ClassSession, Student, Parent, ParentMessage
 
 
 class AdminLoginSerializer(serializers.Serializer):
@@ -38,3 +38,6 @@ class ParentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Parent
         fields = ['name', 'email', 'phone_number', 'student']
+
+
+

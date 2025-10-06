@@ -81,4 +81,23 @@ class StudentAlert(models.Model):
         return f"Alert for {self.student.user.first_name} - {self.subject}"
 
 
-    
+
+class ParentMessage(models.Model):
+    TYPE_CHOICE = [
+        ("announcement", "Announcement"),
+        ("event", "Event"),
+        ("academic", "Academic"),
+        ("alert", "Alert"),
+    ]
+
+    parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name="message")
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    sender = models.CharField(max_length=100)
+    type = models.CharField(max_length=20, choices=TYPE_CHOICE, default="announcement")
+    is_read = models.BooleanField(default=False)
+    priority = models.CharField(max_length=10, default="medium")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.parent.user.first_name})"
