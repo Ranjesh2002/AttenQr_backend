@@ -40,4 +40,12 @@ class ParentProfileSerializer(serializers.ModelSerializer):
         fields = ['name', 'email', 'phone_number', 'student']
 
 
+class ParentMessage(serializers.ModelSerializer):
+    date = serializers.SerializerMethodField()
 
+    class Meta:
+        model = ParentMessage
+        fields = ["id", "title", "content", "type", "sender","is_read", "priority", "date"]
+
+    def get_date(self, obj):
+        return obj.created_at.strftime("%b %d, %Y %I:%M %p")
