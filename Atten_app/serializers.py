@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ClassSession, Student, Parent, ParentMessage
+from .models import ClassSession, Student, Parent, ParentMessage, Attendance
 
 
 class AdminLoginSerializer(serializers.Serializer):
@@ -49,3 +49,14 @@ class ParentMessage(serializers.ModelSerializer):
 
     def get_date(self, obj):
         return obj.created_at.strftime("%b %d, %Y %I:%M %p")
+
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendance
+        fields = ['id', 'date', 'timestamp']
+
+    def get_date(self, obj):
+        return obj.timestamp.date()
