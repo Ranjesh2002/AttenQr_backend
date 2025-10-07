@@ -14,7 +14,7 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer
+from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer, ParentMessage
 from .services import admin_login_service, get_class_sessions, parent_login_services
 from django.conf import settings
 
@@ -1028,3 +1028,22 @@ def parent_profile(request):
     
     serializer = ParentProfileSerializer(parent)
     return Response(serializer.data)
+
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def parent_message(request):
+    user = request.user
+    if not hasattr(user, "parent"):
+        return Response({"error": "Not a parent"}, status=403)
+    
+    parent = user.parent
+    messages = ParentMessage.objects.filter(parent=parent).order_by("-created_at")
+    serializer = ParentMessage(messages, many=True)
+
+    return Response({
+        "total": messages.count(),
+        "unread": messages.filter(is_read=False).count(),
+        "messages": serializer.data,
+    })
