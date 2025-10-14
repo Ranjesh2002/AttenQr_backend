@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert, Parent
+from .models import Student, Teacher, QRCodeSession, Attendance, ClassSession,StudentAlert, Parent, ParentMessage
 from django.utils import timezone
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta, date
@@ -14,7 +14,7 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer, ParentMessage
+from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer, ParentMessageSerializer, AttendanceSerializer
 from .services import admin_login_service, get_class_sessions, parent_login_services
 from django.conf import settings
 
@@ -991,7 +991,7 @@ def parent_dashboard_view(request):
         timestamp__date__gte=date.today() - timedelta(days=7)
     )
     present_days = weekly_records.count()
-    total_days = QRCodeSession.objects.filter(date__gte=date.today() - timedelta(days=6))
+    total_days = QRCodeSession.objects.filter(created_at__date__gte=date.today() - timedelta(days=6)).count()
     percentage = int((present_days / total_days) * 100) if total_days > 0 else 0
 
     weekly_stats = {
@@ -1040,10 +1040,56 @@ def parent_message(request):
     
     parent = user.parent
     messages = ParentMessage.objects.filter(parent=parent).order_by("-created_at")
-    serializer = ParentMessage(messages, many=True)
+    serializer = ParentMessageSerializer(messages, many=True)
 
     return Response({
         "total": messages.count(),
         "unread": messages.filter(is_read=False).count(),
         "messages": serializer.data,
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def parent_attendance_history(request):
+    user = request.user
+
+    try:
+        parent = Parent.objects.get(user=user)
+
+    except Parent.DoesNotExist:
+        return Response({'error': 'parent not found'})
+    
+    if not parent.student:
+        return Response({'error': 'No student linked to this parent'}, status=400)
+    
+    student = parent.student
+
+    month = request.GET.get('month')
+    year = request.GET.get('year')
+
+    attendance = Attendance.objects.filter(student=student)
+
+    if month and year:
+        attendance = attendance.filter(timestamp__month=month, timestamp__year=year)
+    elif year:
+        attendance = attendance.filter(timestamp__year=year)
+
+    serializer = AttendanceSerializer(attendance, many=True)
+
+    total_days = attendance.count()
+    present_days = total_days  
+    absent_days = 30 - present_days if month else 0  
+    percentage = (present_days / 30) * 100 if month else 0
+
+    data = {
+        "attendance_records": serializer.data,
+        "stats": {
+            "total_classes": total_days,
+            "present": present_days,
+            "absent": absent_days,
+            "percentage": round(percentage, 2)
+        }
+    }
+
+    return Response(data)

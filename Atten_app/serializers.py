@@ -40,7 +40,7 @@ class ParentProfileSerializer(serializers.ModelSerializer):
         fields = ['name', 'email', 'phone_number', 'student']
 
 
-class ParentMessage(serializers.ModelSerializer):
+class ParentMessageSerializer(serializers.ModelSerializer):
     date = serializers.SerializerMethodField()
 
     class Meta:
