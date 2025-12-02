@@ -14,7 +14,7 @@ from jinja2 import Template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer, ParentMessageSerializer, AttendanceSerializer
+from .serializers import AdminLoginSerializer, ClassSessionSerializer, ParentLoginSerializer, ParentProfileSerializer, ParentMessageSerializer, AttendanceSerializer, AttendanceMonthlySerializer
 from .services import admin_login_service, get_class_sessions, parent_login_services
 from django.conf import settings
 
@@ -1093,3 +1093,30 @@ def parent_attendance_history(request):
     }
 
     return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def monthly_attendance(request):
+    month = request.GET.get('month')
+    year = request.GET.get('year')
+
+    if not month or not year:
+        return Response({"error": "month and year query parameters are required"},status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        month = int(month)
+        year = int(year)
+
+    except ValueError:
+        return Response({"error": "month and year must be integers"},
+            status=status.HTTP_400_BAD_REQUEST)
+    
+    attendance_qs = Attendance.objects.filter(
+        timestamp__year=year,
+        timestamp__month=month
+    ).select_related('student', 'student__user')
+
+    serializer = AttendanceMonthlySerializer(attendance_qs, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)

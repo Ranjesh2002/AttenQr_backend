@@ -60,3 +60,25 @@ class AttendanceSerializer(serializers.ModelSerializer):
 
     def get_date(self, obj):
         return obj.timestamp.date()
+    
+
+class AttendanceMonthlySerializer(serializers.ModelSerializer):
+    student_id = serializers.CharField(source='student.student_id', read_only=True)
+    student_name = serializers.CharField(source='student.user.first_name', read_only=True)
+    email = serializers.CharField(source='student.user.email', read_only=True)
+    department = serializers.CharField(source='student.department', read_only=True)
+    year = serializers.CharField(source='student.year', read_only=True)
+    date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendance
+        fields = [
+            'student_id',
+            'student_name',
+            'email',
+            'department',
+            'year',
+            'date'
+        ]
+    def get_date(self, obj):
+        return obj.timestamp.date()
